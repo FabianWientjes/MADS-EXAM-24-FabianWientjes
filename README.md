@@ -1,3 +1,8 @@
+# Examen gemaakt door:
+Fabian Wientjes 
+
+Studentnummer: 1850380
+                       
 # MADS-exam-24
 The junior datascientist at your work is pretty confident about his knowledge of all the models; He has helped you out by doing some data exploration for you, and he even created two models!
 
