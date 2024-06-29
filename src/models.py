@@ -145,3 +145,126 @@ class Transformer(nn.Module):
         x = x.mean(dim=1)  # Global Average Pooling
         x = self.out(x)
         return x
+
+class GRUBlock(nn.Module):
+    def __init__(self, hidden_size, dropout):
+        super(GRUBlock, self).__init__()
+        self.gru = nn.GRU(
+            input_size=hidden_size,
+            hidden_size=hidden_size,
+            batch_first=True,
+        )
+        self.ff = nn.Sequential(
+            nn.Linear(hidden_size, hidden_size),
+            nn.ReLU(),
+            nn.Linear(hidden_size, hidden_size),
+        )
+        self.layer_norm1 = nn.LayerNorm(hidden_size)
+        self.layer_norm2 = nn.LayerNorm(hidden_size)
+
+    def forward(self, x):
+        identity = x.clone()  # skip connection
+        x, _ = self.gru(x)
+        x = self.layer_norm1(x + identity)  # Add & Norm skip
+
+        identity = x.clone()  # second skip connection
+        x = self.ff(x)
+        x = self.layer_norm2(x + identity)  # Add & Norm skip
+        return x
+
+class GRUModel(nn.Module):
+    def __init__(
+        self,
+        config: dict,
+    ) -> None:
+        super().__init__()
+        self.conv1d = nn.Conv1d(
+            in_channels=1,
+            out_channels=config["hidden"],
+            kernel_size=3,
+            stride=2,
+            padding=1,
+        )
+
+        # Create multiple GRU blocks
+        self.gru_blocks = nn.ModuleList([
+            GRUBlock(config["hidden"], config["dropout"])
+            for _ in range(config["num_blocks"])
+        ])
+
+        self.out = nn.Linear(config["hidden"], config["output"])
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # streamer: (batch, seq_len, channels)
+        # conv1d:   (batch, channels, seq_len)
+        # gru:      (batch, seq_len, channels)
+        x = self.conv1d(x.transpose(1, 2))  # flip channels and seq_len for conv1d
+        x = x.transpose(1, 2)  # flip back to seq_len and channels
+
+        # Apply multiple GRU blocks
+        for gru_block in self.gru_blocks:
+            x = gru_block(x)
+
+        x = x.mean(dim=1)  # Global Average Pooling
+        x = self.out(x)
+        return x
+
+class LSTMModel(nn.Module):
+    def __init__(self, config: dict) -> None:
+        super(LSTMModel, self).__init__()
+        self.conv1d = nn.Conv1d(
+            in_channels=1,
+            out_channels=config["hidden"],
+            kernel_size=3,
+            stride=2,
+            padding=1,
+        )
+
+        # Creëer meerdere LSTM-blokken
+        self.lstm_blocks = nn.ModuleList([
+            LSTMBlock(config["hidden"], config["dropout"])
+            for _ in range(config["num_blocks"])
+        ])
+
+        self.out = nn.Linear(config["hidden"], config["output"])
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # streamer: (batch, seq_len, channels)
+        # conv1d:   (batch, channels, seq_len)
+        # lstm:     (batch, seq_len, channels)
+        x = self.conv1d(x.transpose(1, 2))  # Flip channels and seq_len for conv1d
+        x = x.transpose(1, 2)  # Flip back to seq_len and channels
+
+        # Toepassen van meerdere LSTM-blokken
+        for lstm_block in self.lstm_blocks:
+            x = lstm_block(x)
+
+        x = x.mean(dim=1)  # Global Average Pooling
+        x = self.out(x)
+        return x
+
+class LSTMBlock(nn.Module):
+    def __init__(self, hidden_size, dropout):
+        super(LSTMBlock, self).__init__()
+        self.lstm = nn.LSTM(
+            input_size=hidden_size,
+            hidden_size=hidden_size,
+            batch_first=True,
+        )
+        self.ff = nn.Sequential(
+            nn.Linear(hidden_size, hidden_size),
+            nn.ReLU(),
+            nn.Linear(hidden_size, hidden_size),
+        )
+        self.layer_norm1 = nn.LayerNorm(hidden_size)
+        self.layer_norm2 = nn.LayerNorm(hidden_size)
+
+    def forward(self, x):
+        identity = x.clone()  # Skip connection
+        x, _ = self.lstm(x)
+        x = self.layer_norm1(x + identity)  # Add & Norm skip
+
+        identity = x.clone()  # Second skip connection
+        x = self.ff(x)
+        x = self.layer_norm2(x + identity)  # Add & Norm skip
+        return x
