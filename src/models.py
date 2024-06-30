@@ -147,16 +147,18 @@ class Transformer(nn.Module):
         return x
 
 class GRUBlock(nn.Module):
-    def __init__(self, hidden_size, dropout):
+    def __init__(self, hidden_size, num_heads, dropout):
         super(GRUBlock, self).__init__()
         self.gru = nn.GRU(
             input_size=hidden_size,
             hidden_size=hidden_size,
             batch_first=True,
         )
+        self.attention = nn.MultiheadAttention(embed_dim=hidden_size, num_heads=num_heads, batch_first=True)
         self.ff = nn.Sequential(
             nn.Linear(hidden_size, hidden_size),
             nn.ReLU(),
+            nn.Dropout(dropout),
             nn.Linear(hidden_size, hidden_size),
         )
         self.layer_norm1 = nn.LayerNorm(hidden_size)
