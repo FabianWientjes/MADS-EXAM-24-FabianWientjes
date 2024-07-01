@@ -190,7 +190,7 @@ class GRUModel(nn.Module):
 
         # Create multiple GRU blocks
         self.gru_blocks = nn.ModuleList([
-            GRUBlock(config["hidden"], config["dropout"])
+            GRUBlock(config["hidden"], config["num_heads"], config["dropout"])
             for _ in range(config["num_blocks"])
         ])
 

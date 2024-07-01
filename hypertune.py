@@ -13,7 +13,7 @@ from ray.tune.schedulers.hb_bohb import HyperBandForBOHB
 from ray.tune.search.bohb import TuneBOHB  # Corrected import statement
 from src import models, datasets
 import sys
-sys.path.append('../')
+# sys.path.append('../')
 
 SAMPLE_INT = tune.sample_from
 SAMPLE_FLOAT = tune.sample_from
@@ -38,23 +38,23 @@ def train(config: Dict):
     from mads_datasets.base import BaseDatastreamer
     from mltrainer.preprocessors import BasePreprocessor
 
-    trainfile = Path("../data/heart_big_train.parq").resolve()
-    testfile = Path('../data/heart_big_test.parq').resolve()
+    thisfile = Path(__file__)
+    logger.info(f"thisfile {thisfile}")
+
+    # trainfile = (thisfile / "../data/heart_big_train.parq").resolve()
+    # testfile = (thisfile / "../data/heart_big_test.parq").resolve()
+
+    trainfile = (thisfile / "../data/heart_train.parq").resolve()
+    testfile = (thisfile / "../data/heart_test.parq").resolve()
+    
+    logger.info(f"trainfile {trainfile}: exists: {trainfile.exists()}")       
+    logger.info(f"testfile {testfile}: exists: {testfile.exists()}")
 
     traindataset = HeartDataset1D(trainfile, target="target")
     testdataset = HeartDataset1D(testfile, target="target")
 
-    thisfile = Path(__file__)
-    logger.info(f"thisfile {thisfile}")
-        
-    trainfile = (thisfile / "../data/heart_big_train.parq").resolve()
-    testfile = (thisfile / "../data/heart_big_test.parq").resolve()
-    traindataset = datasets.HeartDataset1D(trainfile, "target")
-    testdataset = datasets.HeartDataset1D(testfile, target="target")
-
     trainstreamer = BaseDatastreamer(traindataset, preprocessor=BasePreprocessor(), batchsize=32)
     teststreamer = BaseDatastreamer(testdataset, preprocessor=BasePreprocessor(), batchsize=32)
-
     # Locking the data directory to avoid parallel instances trying to
     # access it simultaneously
     with FileLock(config["data_dir"] / ".lock"):
@@ -68,7 +68,7 @@ def train(config: Dict):
     model = models.GRUModel(config)
 
     trainersettings = TrainerSettings(
-        epochs=50,
+        epochs=10,
         metrics=[recall],
         logdir=Path("."),
         train_steps=len(trainstreamer),
@@ -101,12 +101,15 @@ if __name__ == "__main__":
         logger.info(f"Created {data_dir}")
     
     tune_dir = Path("models/ray").resolve()
+    if not tune_dir.exists():
+        tune_dir.mkdir(parents=True)
+        logger.info(f"Created {tune_dir}")
 
     config = {
-        "hidden": tune.randint(64, 513),
+        "hidden": tune.randint(64, 512),
         "dropout": tune.uniform(0.0, 0.3),
         "output": 2,
-        "num_heads": 4,
+        "num_heads": 1,
         "num_blocks": tune.randint(1, 6),
         "data_dir": data_dir,
         "tune_dir": tune_dir
@@ -134,6 +137,7 @@ if __name__ == "__main__":
         search_alg=bohb_search,
         scheduler=bohb_hyperband,
         verbose=1,
+        storage_path=str(config["tune_dir"])
     )
 
     ray.shutdown()
