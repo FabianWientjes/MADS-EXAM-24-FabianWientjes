@@ -46,17 +46,17 @@ def train(config: Dict):
 
     logger.info(f"Loaded {len(traindataset)} training samples.")
     logger.info(f"Loaded {len(testdataset)} test samples.")
-
-    trainstreamer = BaseDatastreamer(
-        traindataset, preprocessor=BasePreprocessor(), batchsize=32
-    )
-    teststreamer = BaseDatastreamer(
-        testdataset, preprocessor=BasePreprocessor(), batchsize=32
-    )
+    
+    trainstreamer = BaseDatastreamer (  
+        traindataset, preprocessor=BasePreprocessor(), batchsize=32  # noqa: F841
+    )  
+    teststreamer = BaseDatastreamer(  
+        testdataset, preprocessor=BasePreprocessor(), batchsize=32 # noqa: F841
+    )  
     # Locking the data directory to avoid parallel instances trying to
     # access it simultaneously
-    with FileLock(config["data_dir"] / ".lock"):
-        streamers = {
+    with FileLock(config["data_dir"] / ".lock"): 
+        streamers = { # noqa: F841
             "train": trainstreamer,
             "valid": teststreamer,  # Assuming test dataset is used for validation
         }
