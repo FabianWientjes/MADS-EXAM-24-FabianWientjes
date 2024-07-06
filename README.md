@@ -2,6 +2,19 @@
 Fabian Wientjes 
 
 Studentnummer: 1850380
+
+Voor Raoul: Mijn eigen werk voor de eindopdracht kun je vinden in.
+
+Root folder
+- Hypertune.py
+
+Notebooks:
+- gru_Attention.ipynb
+- gru_GoogleNet.ipynb
+- gru.ipynb
+- lstm.ipynb
+- visualisatie.ipynb
+- ray_visualize.ipynb
                        
 # MADS-exam-24
 The junior datascientist at your work is pretty confident about his knowledge of all the models; He has helped you out by doing some data exploration for you, and he even created two models!
