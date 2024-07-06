@@ -5,7 +5,7 @@ Studentnummer: 1850380
 
 Voor Raoul: Mijn eigen werk voor de eindopdracht kun je vinden in.
 
-Root folder
+Root folder (mads-exam-24)
 - Hypertune.py
 
 Notebooks:
