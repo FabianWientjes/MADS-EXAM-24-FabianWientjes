@@ -89,6 +89,7 @@ class TransformerBlock(nn.Module):
             nn.Linear(hidden_size, hidden_size),
             nn.ReLU(),
             nn.Linear(hidden_size, hidden_size),
+            nn.Dropout(dropout),
         )
         self.layer_norm1 = nn.LayerNorm(hidden_size)
         self.layer_norm2 = nn.LayerNorm(hidden_size)
@@ -146,6 +147,7 @@ class Transformer(nn.Module):
         x = self.out(x)
         return x
 
+
 class GRUBlock(nn.Module):
     def __init__(self, hidden_size, num_heads, dropout):
         super(GRUBlock, self).__init__()
@@ -154,12 +156,14 @@ class GRUBlock(nn.Module):
             hidden_size=hidden_size,
             batch_first=True,
         )
-        self.attention = nn.MultiheadAttention(embed_dim=hidden_size, num_heads=num_heads, batch_first=True)
+        self.attention = nn.MultiheadAttention(
+            embed_dim=hidden_size, num_heads=num_heads, batch_first=True
+        )
         self.ff = nn.Sequential(
             nn.Linear(hidden_size, hidden_size),
             nn.ReLU(),
-            nn.Dropout(dropout),
             nn.Linear(hidden_size, hidden_size),
+            nn.Dropout(dropout),
         )
         self.layer_norm1 = nn.LayerNorm(hidden_size)
         self.layer_norm2 = nn.LayerNorm(hidden_size)
@@ -173,6 +177,7 @@ class GRUBlock(nn.Module):
         x = self.ff(x)
         x = self.layer_norm2(x + identity)  # Add & Norm skip
         return x
+
 
 class GRUModel(nn.Module):
     def __init__(
@@ -189,10 +194,12 @@ class GRUModel(nn.Module):
         )
 
         # Create multiple GRU blocks
-        self.gru_blocks = nn.ModuleList([
-            GRUBlock(config["hidden"], config["num_heads"], config["dropout"])
-            for _ in range(config["num_blocks"])
-        ])
+        self.gru_blocks = nn.ModuleList(
+            [
+                GRUBlock(config["hidden"], config["num_heads"], config["dropout"])
+                for _ in range(config["num_blocks"])
+            ]
+        )
 
         self.out = nn.Linear(config["hidden"], config["output"])
 
@@ -211,6 +218,7 @@ class GRUModel(nn.Module):
         x = self.out(x)
         return x
 
+
 class LSTMModel(nn.Module):
     def __init__(self, config: dict) -> None:
         super(LSTMModel, self).__init__()
@@ -223,10 +231,12 @@ class LSTMModel(nn.Module):
         )
 
         # Creëer meerdere LSTM-blokken
-        self.lstm_blocks = nn.ModuleList([
-            LSTMBlock(config["hidden"], config["dropout"])
-            for _ in range(config["num_blocks"])
-        ])
+        self.lstm_blocks = nn.ModuleList(
+            [
+                LSTMBlock(config["hidden"], config["dropout"])
+                for _ in range(config["num_blocks"])
+            ]
+        )
 
         self.out = nn.Linear(config["hidden"], config["output"])
 
@@ -244,6 +254,7 @@ class LSTMModel(nn.Module):
         x = x.mean(dim=1)  # Global Average Pooling
         x = self.out(x)
         return x
+
 
 class LSTMBlock(nn.Module):
     def __init__(self, hidden_size, dropout):

@@ -5,27 +5,16 @@ import ray
 import torch
 from filelock import FileLock
 from loguru import logger
-from mltrainer import ReportTypes, Trainer, TrainerSettings, metrics
-import numpy as np
+from mltrainer import ReportTypes, Trainer, TrainerSettings
 from ray import tune
 from ray.tune import CLIReporter
 from ray.tune.schedulers.hb_bohb import HyperBandForBOHB
-from ray.tune.search.bohb import TuneBOHB  # Corrected import statement
-from src import models, datasets
-import sys
-# sys.path.append('../')
+from ray.tune.search.bohb import TuneBOHB  
+from src import models, metrics
 
 SAMPLE_INT = tune.sample_from
 SAMPLE_FLOAT = tune.sample_from
 
-class Recall:
-    def __repr__(self) -> str:
-        return "Recall"
-
-    def __call__(self, y, yhat):
-        true_positives = np.sum((np.argmax(yhat, axis=1) == y) & (y == 1))
-        false_negatives = np.sum((np.argmax(yhat, axis=1) != y) & (y == 1))
-        return true_positives / (true_positives + false_negatives + 1e-10)  # Prevent division by zero
 
 def train(config: Dict):
     """
@@ -34,37 +23,46 @@ def train(config: Dict):
     function.
     """
 
-    from src.datasets import HeartDataset1D  # Assuming 'HeartDataset1D' is defined in src.datasets
     from mads_datasets.base import BaseDatastreamer
     from mltrainer.preprocessors import BasePreprocessor
+    from src.datasets import (
+        HeartDataset1D,
+    )  # Assuming 'HeartDataset1D' is defined in src.datasets
 
     thisfile = Path(__file__)
     logger.info(f"thisfile {thisfile}")
 
-    # trainfile = (thisfile / "../data/heart_big_train.parq").resolve()
-    # testfile = (thisfile / "../data/heart_big_test.parq").resolve()
+    trainfile = (thisfile / "../data/heart_big_train.parq").resolve()
+    testfile = (thisfile / "../data/heart_big_test.parq").resolve()
 
-    trainfile = (thisfile / "../data/heart_train.parq").resolve()
-    testfile = (thisfile / "../data/heart_test.parq").resolve()
-    
-    logger.info(f"trainfile {trainfile}: exists: {trainfile.exists()}")       
+    # trainfile = (thisfile / "../data/heart_train.parq").resolve()
+    # testfile = (thisfile / "../data/heart_test.parq").resolve()
+
+    logger.info(f"trainfile {trainfile}: exists: {trainfile.exists()}")
     logger.info(f"testfile {testfile}: exists: {testfile.exists()}")
 
     traindataset = HeartDataset1D(trainfile, target="target")
     testdataset = HeartDataset1D(testfile, target="target")
 
-    trainstreamer = BaseDatastreamer(traindataset, preprocessor=BasePreprocessor(), batchsize=32)
-    teststreamer = BaseDatastreamer(testdataset, preprocessor=BasePreprocessor(), batchsize=32)
+    logger.info(f"Loaded {len(traindataset)} training samples.")
+    logger.info(f"Loaded {len(testdataset)} test samples.")
+
+    trainstreamer = BaseDatastreamer(
+        traindataset, preprocessor=BasePreprocessor(), batchsize=32
+    )
+    teststreamer = BaseDatastreamer(
+        testdataset, preprocessor=BasePreprocessor(), batchsize=32
+    )
     # Locking the data directory to avoid parallel instances trying to
     # access it simultaneously
     with FileLock(config["data_dir"] / ".lock"):
         streamers = {
             "train": trainstreamer,
-            "valid": teststreamer  # Assuming test dataset is used for validation
+            "valid": teststreamer,  # Assuming test dataset is used for validation
         }
 
     # Setting up the metric
-    recall = Recall()
+    recall = metrics.Recall("macro")
     model = models.GRUModel(config)
 
     trainersettings = TrainerSettings(
@@ -90,6 +88,7 @@ def train(config: Dict):
     )
 
     trainer.loop()
+    logger.info("Training completed.")
 
 
 if __name__ == "__main__":
@@ -99,22 +98,21 @@ if __name__ == "__main__":
     if not data_dir.exists():
         data_dir.mkdir(parents=True)
         logger.info(f"Created {data_dir}")
-    
+
     tune_dir = Path("models/ray").resolve()
     if not tune_dir.exists():
         tune_dir.mkdir(parents=True)
         logger.info(f"Created {tune_dir}")
 
     config = {
-        "hidden": tune.randint(64, 512),
-        "dropout": tune.uniform(0.0, 0.3),
-        "output": 2,
+        "hidden": tune.randint(64, 128),
         "num_heads": 1,
-        "num_blocks": tune.randint(1, 6),
+        "dropout": tune.uniform(0.0, 0.2),
+        "output": 5,
+        "num_blocks": tune.randint(1, 3),
+        "tune_dir": tune_dir,
         "data_dir": data_dir,
-        "tune_dir": tune_dir
     }
-
     reporter = CLIReporter()
     reporter.add_metric_column("Recall")
 
@@ -137,7 +135,7 @@ if __name__ == "__main__":
         search_alg=bohb_search,
         scheduler=bohb_hyperband,
         verbose=1,
-        storage_path=str(config["tune_dir"])
+        storage_path=str(config["tune_dir"]),
     )
 
     ray.shutdown()
